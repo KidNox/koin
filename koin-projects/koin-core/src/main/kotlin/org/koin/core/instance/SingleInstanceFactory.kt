@@ -25,28 +25,23 @@ import org.koin.core.definition.BeanDefinition
 class SingleInstanceFactory<T>(koin: Koin, beanDefinition: BeanDefinition<T>) :
     InstanceFactory<T>(koin, beanDefinition) {
 
+    @Volatile
     private var value: T? = null
 
     override fun isCreated(): Boolean = (value != null)
 
+    @Synchronized
     override fun drop() {
         beanDefinition.callbacks.onClose?.invoke(value)
         value = null
     }
 
+    @Synchronized
     override fun create(context: InstanceContext): T {
-        return synchronized(this) {
-            if (value == null) {
-                super.create(context)
-            } else value ?: error("Single instance created couldn't return value")
-        }
+        return value ?: super.create(context).apply { value = this }
     }
 
-    @Suppress("UNCHECKED_CAST")
     override fun get(context: InstanceContext): T {
-        if (!isCreated()) {
-            value = create(context)
-        }
-        return value ?: error("Single instance created couldn't return value")
+        return value ?: create(context)
     }
 }
